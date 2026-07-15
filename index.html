@@ -306,6 +306,37 @@
   }
   .admin-panel{ position:relative; }
 
+  /* ---------- PIN gate ---------- */
+  #pin-overlay{
+    position:fixed; inset:0; background:rgba(3,8,16,.78); backdrop-filter:blur(4px);
+    z-index:90; display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #pin-overlay.open{ display:flex; }
+  .pin-panel{
+    width:min(340px,90vw); background:var(--bg-panel-2); border:1px solid var(--border);
+    border-radius:20px; padding:32px 26px 26px; text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);
+  }
+  .pin-icon{ font-size:30px; margin-bottom:8px; }
+  .pin-panel h2{ font-family:var(--font-display); margin:0 0 4px; font-size:19px; }
+  .pin-panel .hint{ margin:0 0 18px; }
+  #pin-input{
+    width:100%; text-align:center; font-family:var(--font-display); font-size:26px;
+    letter-spacing:10px; background:rgba(255,255,255,.04); border:1px solid var(--border);
+    border-radius:12px; padding:12px 14px; color:var(--text); margin-bottom:8px;
+  }
+  #pin-input:focus{ outline:none; border-color:var(--teal); }
+  #pin-input.shake{ animation:pinShake .4s; border-color:var(--danger); }
+  @keyframes pinShake{
+    0%,100%{ transform:translateX(0); }
+    25%{ transform:translateX(-8px); }
+    75%{ transform:translateX(8px); }
+  }
+  .pin-error{ color:var(--danger); font-size:12.5px; margin-bottom:12px; display:none; }
+  .pin-error.show{ display:block; }
+  .pin-actions{ display:flex; gap:10px; }
+  .pin-actions .btn{ flex:1; }
+
   @media (max-width:640px){
     .stat-strip{ grid-template-columns:1fr; }
     .row{ grid-template-columns:28px 80px 1fr 40px 64px; gap:8px; }
@@ -341,7 +372,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">£0</div>
+      <div class="value" id="stat-revenue">₺0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -384,6 +415,20 @@
     <div class="admin-footer">
       <button class="btn btn-ghost" id="reset-month-btn">Ayı Sıfırla</button>
       <button class="btn btn-danger" id="clear-all-btn">Tümünü Sil</button>
+    </div>
+  </div>
+</div>
+
+<div id="pin-overlay">
+  <div class="pin-panel">
+    <div class="pin-icon">🔒</div>
+    <h2>Yönetim Erişimi</h2>
+    <p class="hint">Değişiklik yapmak için PIN kodunu gir.</p>
+    <input type="password" id="pin-input" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="••••">
+    <div class="pin-error" id="pin-error">Yanlış PIN, tekrar dene.</div>
+    <div class="pin-actions">
+      <button class="btn btn-ghost" id="pin-cancel">Vazgeç</button>
+      <button class="btn btn-primary" id="pin-submit">Onayla</button>
     </div>
   </div>
 </div>
@@ -442,10 +487,63 @@
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '£' + n.toLocaleString('tr-TR');
+    return '₺' + n.toLocaleString('tr-TR');
   }
 
   function uid(){ return 'a' + Math.random().toString(36).slice(2,9); }
+
+  /* ---------------- PIN gate ---------------- */
+  var PIN_CODE = '4505';
+  var UNLOCK_KEY = 'det_satis_ligi_unlocked';
+
+  function isUnlocked(){
+    try{ return localStorage.getItem(UNLOCK_KEY) === 'yes'; }catch(e){ return false; }
+  }
+  function setUnlocked(){
+    try{ localStorage.setItem(UNLOCK_KEY, 'yes'); }catch(e){}
+  }
+
+  var pinOverlay = document.getElementById('pin-overlay');
+  var pinInput = document.getElementById('pin-input');
+  var pinError = document.getElementById('pin-error');
+  var pinSubmitBtn = document.getElementById('pin-submit');
+  var pinCancelBtn = document.getElementById('pin-cancel');
+  var pinPendingCallback = null;
+
+  function requestAuth(onSuccess){
+    if(isUnlocked()){ onSuccess(); return; }
+    pinPendingCallback = onSuccess;
+    pinError.classList.remove('show');
+    pinInput.value = '';
+    pinOverlay.classList.add('open');
+    setTimeout(function(){ pinInput.focus(); }, 60);
+  }
+  function closePinModal(){
+    pinOverlay.classList.remove('open');
+    pinPendingCallback = null;
+  }
+  function submitPin(){
+    if(pinInput.value === PIN_CODE){
+      setUnlocked();
+      var cb = pinPendingCallback;
+      closePinModal();
+      if(cb) cb();
+    } else {
+      pinError.classList.add('show');
+      pinInput.value = '';
+      pinInput.focus();
+      pinInput.classList.remove('shake');
+      void pinInput.offsetWidth;
+      pinInput.classList.add('shake');
+    }
+  }
+  pinSubmitBtn.addEventListener('click', submitPin);
+  pinCancelBtn.addEventListener('click', closePinModal);
+  pinInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') submitPin();
+    if(e.key === 'Escape') closePinModal();
+  });
+  pinOverlay.addEventListener('click', function(e){ if(e.target === pinOverlay) closePinModal(); });
 
   /* ---------------- clock ---------------- */
   var months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
@@ -597,13 +695,17 @@
   boardEl.addEventListener('click', function(e){
     var btn = e.target.closest('.row-btn');
     if(!btn) return;
+    requestAuth(function(){ performRowAction(btn); });
+  });
+
+  function performRowAction(btn){
     var id = btn.dataset.id;
     var act = btn.dataset.act;
     var agent = state.agents.find(function(a){ return a.id === id; });
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
@@ -625,7 +727,7 @@
       saveState();
       renderBoard(id);
     }
-  });
+  }
 
   /* ---------------- sort filter pills ---------------- */
   var pillSales = document.getElementById('pill-sales');
@@ -647,11 +749,11 @@
   var adminList = document.getElementById('admin-list');
 
   document.getElementById('gear-btn').addEventListener('click', function(){
-    overlay.classList.add('open');
-    renderAdmin();
+    requestAuth(openAdmin);
   });
   document.getElementById('admin-close').addEventListener('click', closeAdmin);
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closeAdmin(); });
+  function openAdmin(){ overlay.classList.add('open'); renderAdmin(); }
   function closeAdmin(){ overlay.classList.remove('open'); }
 
   function renderAdmin(){
@@ -720,14 +822,17 @@
     renderBoard();
   });
 
-  /* keyboard shortcut: press "a" to toggle admin, "Escape" to close */
+  /* keyboard shortcut: press "a" to open admin (PIN korumalı), "Escape" to close */
   document.addEventListener('keydown', function(e){
     if(e.key === 'a' || e.key === 'A'){
       if(document.activeElement && (document.activeElement.tagName === 'INPUT')) return;
-      overlay.classList.toggle('open');
-      if(overlay.classList.contains('open')) renderAdmin();
+      if(overlay.classList.contains('open')){
+        closeAdmin();
+      } else {
+        requestAuth(openAdmin);
+      }
     }
-    if(e.key === 'Escape') closeAdmin();
+    if(e.key === 'Escape'){ closeAdmin(); closePinModal(); }
   });
 
   /* ---------------- toast ---------------- */
