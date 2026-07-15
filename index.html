@@ -341,7 +341,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">₺0</div>
+      <div class="value" id="stat-revenue">£0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -442,7 +442,7 @@
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '₺' + n.toLocaleString('tr-TR');
+    return '£' + n.toLocaleString('tr-TR');
   }
 
   function uid(){ return 'a' + Math.random().toString(36).slice(2,9); }
@@ -603,7 +603,7 @@
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
