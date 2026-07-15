@@ -243,7 +243,7 @@
 
   /* ---------- admin gear + panel ---------- */
   #gear-btn{
-    position:fixed; bottom:22px; right:22px; z-index:70;
+    position:fixed; top:112px; right:22px; z-index:70;
     width:46px; height:46px; border-radius:50%;
     background:rgba(255,255,255,.04); border:1px solid var(--border);
     color:var(--muted); font-size:20px; cursor:pointer;
@@ -341,7 +341,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">£0</div>
+      <div class="value" id="stat-revenue">₺0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -388,36 +388,61 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyBHYHQ0Dofsx6pkQp3cw8v9NpJ9gJyBFT4",
+    authDomain: "larasatis.firebaseapp.com",
+    databaseURL: "https://larasatis-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "larasatis",
+    storageBucket: "larasatis.firebasestorage.app",
+    messagingSenderId: "873274105895",
+    appId: "1:873274105895:web:181aaa095fa91f4a95ee02"
+  };
+  firebase.initializeApp(firebaseConfig);
+</script>
+
 <script>
 (function(){
   "use strict";
 
-  /* ---------------- state ---------------- */
-  var STORAGE_KEY = 'det_satis_ligi_v1';
+  /* ---------------- state (Firebase Realtime Database) ---------------- */
   var celebrationColors = ['#2FD9C4','#F4B740','#FF6B6B','#C7D1DC','#7CE7D6','#FFD98A'];
+  var dbRef = firebase.database().ref('satis_ligi_state');
+  var state = { agents: [], sortMode: 'sales' };
+  var firstLoad = true;
 
-  function loadState(){
-    try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
-    }catch(e){}
-    return { agents: [], sortMode: 'sales' };
+  function migrateState(){
+    if(!state.agents) state.agents = [];
+    if(state.sortMode !== 'sales' && state.sortMode !== 'revenue') state.sortMode = 'sales';
+    state.agents.forEach(function(a){
+      if(typeof a.revenue !== 'number') a.revenue = 0;
+      if(!Array.isArray(a.log)) a.log = [];
+    });
   }
+
   function saveState(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+    dbRef.set(state).catch(function(err){
+      console.error('Firebase kayıt hatası:', err);
+    });
   }
 
-  var state = loadState();
-  if(!state.agents) state.agents = [];
-  if(state.sortMode !== 'sales' && state.sortMode !== 'revenue') state.sortMode = 'sales';
-  state.agents.forEach(function(a){
-    if(typeof a.revenue !== 'number') a.revenue = 0;
-    if(!Array.isArray(a.log)) a.log = [];
+  dbRef.on('value', function(snapshot){
+    var data = snapshot.val();
+    state = data || { agents: [], sortMode: 'sales' };
+    migrateState();
+    renderBoard();
+    refreshPills();
+    if(overlay.classList.contains('open')) renderAdmin();
+    firstLoad = false;
+  }, function(err){
+    console.error('Firebase bağlantı hatası:', err);
   });
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '£' + n.toLocaleString('tr-TR');
+    return '₺' + n.toLocaleString('tr-TR');
   }
 
   function uid(){ return 'a' + Math.random().toString(36).slice(2,9); }
@@ -578,7 +603,7 @@
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
@@ -849,7 +874,7 @@
   }
 
   /* ---------------- init ---------------- */
-  renderBoard();
+  /* İlk render, Firebase'den veri geldiğinde dbRef.on('value', ...) içinde tetiklenir. */
 })();
 </script>
 </body>
