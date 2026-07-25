@@ -238,6 +238,24 @@
   @keyframes toastIn{ from{ opacity:0; transform:translateY(-30px) scale(.85);} to{ opacity:1; transform:translateY(0) scale(1);} }
   @keyframes toastOut{ to{ opacity:0; transform:translateY(-16px) scale(.92);} }
 
+  .toast.big{
+    font-size:clamp(20px,3vw,30px); padding:20px 40px;
+    background:linear-gradient(135deg, rgba(47,217,196,.97), rgba(20,140,125,.97));
+    color:#04140F;
+    box-shadow:0 14px 50px rgba(47,217,196,.5);
+  }
+
+  #milestone-flash{
+    position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at 50% 25%, rgba(244,183,64,0.4), transparent 62%);
+  }
+  #milestone-flash.show{ animation:milestoneFlash 2s ease-out; }
+  @keyframes milestoneFlash{
+    0%{ opacity:0; }
+    12%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+
   /* ---------- fireworks / confetti canvas ---------- */
   #fx-canvas{ position:fixed; inset:0; pointer-events:none; z-index:50; }
 
@@ -257,6 +275,21 @@
     z-index:80; display:none; align-items:center; justify-content:center; padding:20px;
   }
   #admin-overlay.open{ display:flex; }
+
+  #history-overlay{
+    position:fixed; inset:0; background:rgba(3,8,16,.72); backdrop-filter:blur(4px);
+    z-index:85; display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #history-overlay.open{ display:flex; }
+  .history-row{
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .history-row:last-child{ border-bottom:none; }
+  .history-row .h-amount{ font-family:var(--font-display); font-weight:700; font-size:15px; flex:1; }
+  .history-row .h-date{ color:var(--muted); font-size:12px; }
+  .history-empty{ text-align:center; color:var(--muted); font-size:14px; padding:24px 0; }
+  .icon-btn.history{ color:var(--teal); border-color:var(--teal-dim); font-size:13px; }
   .admin-panel{
     width:min(560px,92vw); max-height:86vh; overflow-y:auto;
     background:var(--bg-panel-2); border:1px solid var(--border); border-radius:20px;
@@ -347,6 +380,7 @@
 <body>
 
 <canvas id="fx-canvas"></canvas>
+<div id="milestone-flash"></div>
 <div id="toast-layer"></div>
 
 <div class="stage">
@@ -419,6 +453,15 @@
   </div>
 </div>
 
+<div id="history-overlay">
+  <div class="admin-panel">
+    <button class="close-x" id="history-close">✕</button>
+    <h2 id="history-title">Satış Geçmişi</h2>
+    <p class="hint">Yanlış girilen bir satışı buradan silebilirsin, sıradan bağımsız.</p>
+    <div id="history-list"></div>
+  </div>
+</div>
+
 <div id="pin-overlay">
   <div class="pin-panel">
     <div class="pin-icon">🔒</div>
@@ -461,9 +504,23 @@
   function migrateState(){
     if(!state.agents) state.agents = [];
     if(state.sortMode !== 'sales' && state.sortMode !== 'revenue') state.sortMode = 'sales';
+    if(!Array.isArray(state.milestonesHit)) state.milestonesHit = [];
     state.agents.forEach(function(a){
       if(typeof a.revenue !== 'number') a.revenue = 0;
       if(!Array.isArray(a.log)) a.log = [];
+      a.log = a.log.map(function(entry){
+        if(typeof entry === 'number'){
+          return { id: uid(), amount: entry, ts: null };
+        }
+        if(entry && typeof entry === 'object'){
+          return {
+            id: entry.id || uid(),
+            amount: typeof entry.amount === 'number' ? entry.amount : 0,
+            ts: entry.ts || null
+          };
+        }
+        return { id: uid(), amount: 0, ts: null };
+      });
     });
   }
 
@@ -480,6 +537,7 @@
     renderBoard();
     refreshPills();
     if(overlay.classList.contains('open')) renderAdmin();
+    if(historyOverlay.classList.contains('open')) renderHistory();
     firstLoad = false;
   }, function(err){
     console.error('Firebase bağlantı hatası:', err);
@@ -488,6 +546,19 @@
   function formatTL(n){
     n = Math.round(n || 0);
     return '£' + n.toLocaleString('tr-TR');
+  }
+
+  var MILESTONES = [250000, 500000, 1000000];
+  function checkMilestones(){
+    var total = state.agents.reduce(function(s,a){ return s + (a.revenue || 0); }, 0);
+    var newlyHit = [];
+    MILESTONES.forEach(function(m){
+      if(total >= m && state.milestonesHit.indexOf(m) === -1){
+        state.milestonesHit.push(m);
+        newlyHit.push(m);
+      }
+    });
+    return newlyHit;
   }
 
   function uid(){ return 'a' + Math.random().toString(36).slice(2,9); }
@@ -715,13 +786,18 @@
       }
       agent.sales += 1;
       agent.revenue += amount;
-      agent.log.push(amount);
+      agent.log.push({ id: uid(), amount: amount, ts: Date.now() });
+      var newMilestones = checkMilestones();
       saveState();
       renderBoard(id);
       celebrate(agent, amount);
+      newMilestones.forEach(function(m, idx){
+        setTimeout(function(){ bigCelebration(m); }, 1100 + idx * 3200);
+      });
     } else if(act === 'minus'){
       if(agent.sales <= 0) return;
-      var lastAmount = agent.log.length ? agent.log.pop() : 0;
+      var lastEntry = agent.log.length ? agent.log.pop() : null;
+      var lastAmount = lastEntry ? lastEntry.amount : 0;
       agent.sales = Math.max(0, agent.sales - 1);
       agent.revenue = Math.max(0, agent.revenue - lastAmount);
       saveState();
@@ -769,6 +845,7 @@
       row.innerHTML =
         '<div class="name">'+escapeHtml(agent.name)+'</div>'+
         '<div class="count">'+agent.sales+' satış · '+formatTL(agent.revenue)+'</div>'+
+        '<button class="icon-btn history" data-act="history" data-id="'+agent.id+'" title="Satış geçmişi">📋</button>'+
         '<button class="icon-btn del" data-act="del" data-id="'+agent.id+'" title="Temsilciyi sil">🗑</button>';
       adminList.appendChild(row);
     });
@@ -789,7 +866,78 @@
         renderAdmin();
         renderBoard();
       }
+    } else if(act === 'history'){
+      openHistory(id);
     }
+  });
+
+  /* ---------------- sale history modal ---------------- */
+  var historyOverlay = document.getElementById('history-overlay');
+  var historyList = document.getElementById('history-list');
+  var historyTitle = document.getElementById('history-title');
+  var currentHistoryAgentId = null;
+
+  function openHistory(agentId){
+    currentHistoryAgentId = agentId;
+    renderHistory();
+    historyOverlay.classList.add('open');
+  }
+  function closeHistory(){
+    historyOverlay.classList.remove('open');
+    currentHistoryAgentId = null;
+  }
+  document.getElementById('history-close').addEventListener('click', closeHistory);
+  historyOverlay.addEventListener('click', function(e){ if(e.target === historyOverlay) closeHistory(); });
+
+  function formatHistoryDate(ts){
+    if(!ts) return '—';
+    var d = new Date(ts);
+    var dd = String(d.getDate()).padStart(2,'0');
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    var hh = String(d.getHours()).padStart(2,'0');
+    var mi = String(d.getMinutes()).padStart(2,'0');
+    return dd+'.'+mm+' '+hh+':'+mi;
+  }
+
+  function renderHistory(){
+    var agent = state.agents.find(function(a){ return a.id === currentHistoryAgentId; });
+    if(!agent){ closeHistory(); return; }
+    historyTitle.textContent = agent.name + ' — Satış Geçmişi';
+    if(!agent.log.length){
+      historyList.innerHTML = '<div class="history-empty">Henüz kayıtlı satış yok.</div>';
+      return;
+    }
+    // en yeni satış en üstte
+    var ordered = agent.log.slice().reverse();
+    historyList.innerHTML = '';
+    ordered.forEach(function(entry){
+      var row = document.createElement('div');
+      row.className = 'history-row';
+      row.innerHTML =
+        '<div class="h-amount">'+formatTL(entry.amount)+'</div>'+
+        '<div class="h-date">'+formatHistoryDate(entry.ts)+'</div>'+
+        '<button class="icon-btn del" data-entry-id="'+entry.id+'" title="Bu satışı sil">🗑</button>';
+      historyList.appendChild(row);
+    });
+  }
+
+  historyList.addEventListener('click', function(e){
+    var btn = e.target.closest('.icon-btn.del');
+    if(!btn) return;
+    var entryId = btn.dataset.entryId;
+    var agent = state.agents.find(function(a){ return a.id === currentHistoryAgentId; });
+    if(!agent) return;
+    var entry = agent.log.find(function(l){ return l.id === entryId; });
+    if(!entry) return;
+    if(!confirm(formatTL(entry.amount) + ' tutarındaki satış silinsin mi?')) return;
+
+    agent.log = agent.log.filter(function(l){ return l.id !== entryId; });
+    agent.sales = Math.max(0, agent.sales - 1);
+    agent.revenue = Math.max(0, agent.revenue - entry.amount);
+    saveState();
+    renderHistory();
+    renderAdmin();
+    renderBoard();
   });
 
   document.getElementById('add-agent-btn').addEventListener('click', addAgent);
@@ -810,6 +958,7 @@
   document.getElementById('reset-month-btn').addEventListener('click', function(){
     if(!confirm('Tüm temsilcilerin satış ve ciro rakamları sıfırlansın mı? (Temsilciler silinmez)')) return;
     state.agents.forEach(function(a){ a.sales = 0; a.revenue = 0; a.log = []; });
+    state.milestonesHit = [];
     saveState();
     renderAdmin();
     renderBoard();
@@ -817,6 +966,7 @@
   document.getElementById('clear-all-btn').addEventListener('click', function(){
     if(!confirm('Tüm temsilciler ve veriler kalıcı olarak silinsin mi?')) return;
     state.agents = [];
+    state.milestonesHit = [];
     saveState();
     renderAdmin();
     renderBoard();
@@ -845,6 +995,16 @@
     setTimeout(function(){ t.remove(); }, 3200);
   }
 
+  function showBigToast(text){
+    var layer = document.getElementById('toast-layer');
+    var t = document.createElement('div');
+    t.className = 'toast big';
+    t.textContent = text;
+    t.style.animation = 'toastIn .5s cubic-bezier(.2,.8,.2,1), toastOut .6s ease-in forwards 4.6s';
+    layer.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 5300);
+  }
+
   /* ---------------- sound (WebAudio chime) ---------------- */
   var audioCtx = null;
   function playChime(){
@@ -863,6 +1023,26 @@
         osc.connect(gain).connect(audioCtx.destination);
         osc.start(start);
         osc.stop(start + 0.55);
+      });
+    }catch(e){}
+  }
+
+  function playFanfare(){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00]; // C5 E5 G5 C6 E6 G6 C7
+      notes.forEach(function(freq, i){
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        var start = audioCtx.currentTime + i * 0.12;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.24, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.7);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.75);
       });
     }catch(e){}
   }
@@ -975,6 +1155,39 @@
         spawnConfettiBurst(randRange(w*0.1,w*0.9), h*0.1);
         ensureAnimating();
       }, i*160 + 100);
+    }
+  }
+
+  function bigCelebration(threshold){
+    var label = '🎊 ' + formatTL(threshold) + ' CİROYU GEÇTİK! 🎊';
+    showBigToast(label);
+    playFanfare();
+
+    var flash = document.getElementById('milestone-flash');
+    flash.classList.remove('show');
+    void flash.offsetWidth;
+    flash.classList.add('show');
+
+    var w = canvas.width, h = canvas.height;
+    // yoğun havai fişek gösterisi: ~3 saniye boyunca ekranın her yerinde patlamalar
+    for(var i=0;i<16;i++){
+      (function(i){
+        setTimeout(function(){
+          var x = randRange(w*0.06, w*0.94);
+          var y = randRange(h*0.10, h*0.55);
+          spawnFirework(x, y);
+          ensureAnimating();
+        }, i*170);
+      })(i);
+    }
+    // yoğun konfeti yağmuru
+    for(var j=0;j<10;j++){
+      (function(j){
+        setTimeout(function(){
+          spawnConfettiBurst(randRange(w*0.05,w*0.95), h*0.04);
+          ensureAnimating();
+        }, j*210 + 120);
+      })(j);
     }
   }
 
