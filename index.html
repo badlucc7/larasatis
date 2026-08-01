@@ -281,6 +281,24 @@
     z-index:85; display:none; align-items:center; justify-content:center; padding:20px;
   }
   #history-overlay.open{ display:flex; }
+
+  #archive-overlay{
+    position:fixed; inset:0; background:rgba(3,8,16,.72); backdrop-filter:blur(4px);
+    z-index:85; display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #archive-overlay.open{ display:flex; }
+  .archive-card{
+    border:1px solid var(--border); border-radius:14px; padding:14px 16px;
+    margin-bottom:10px; background:rgba(255,255,255,.02);
+  }
+  .archive-card-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .archive-label{ font-family:var(--font-display); font-weight:700; font-size:15px; }
+  .archive-sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+  .archive-actions{ display:flex; gap:6px; flex:none; }
+  .archive-details{ margin-top:12px; border-top:1px solid var(--border); padding-top:10px; }
+  .archive-row{ display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:4px 0; }
+  .archive-row .a-name{ font-weight:600; }
+  .archive-row .a-vals{ color:var(--muted); white-space:nowrap; }
   .history-row{
     display:flex; align-items:center; gap:10px; padding:10px 0;
     border-bottom:1px solid var(--border);
@@ -406,7 +424,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">£0</div>
+      <div class="value" id="stat-revenue">₺0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -446,8 +464,10 @@
 
     <div id="admin-list"></div>
 
+    <button class="btn btn-ghost" id="view-archive-btn" style="width:100%; margin-bottom:12px;">📅 Geçmiş Ayları Görüntüle</button>
+
     <div class="admin-footer">
-      <button class="btn btn-ghost" id="reset-month-btn">Ayı Sıfırla</button>
+      <button class="btn btn-ghost" id="reset-month-btn">Ayı Kapat &amp; Arşivle</button>
       <button class="btn btn-danger" id="clear-all-btn">Tümünü Sil</button>
     </div>
   </div>
@@ -459,6 +479,15 @@
     <h2 id="history-title">Satış Geçmişi</h2>
     <p class="hint">Yanlış girilen bir satışı buradan silebilirsin, sıradan bağımsız.</p>
     <div id="history-list"></div>
+  </div>
+</div>
+
+<div id="archive-overlay">
+  <div class="admin-panel">
+    <button class="close-x" id="archive-close">✕</button>
+    <h2>Geçmiş Aylar</h2>
+    <p class="hint">Her ay kapatıldığında burada otomatik olarak arşivlenir.</p>
+    <div id="archive-list"></div>
   </div>
 </div>
 
@@ -545,7 +574,7 @@
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '£' + n.toLocaleString('tr-TR');
+    return '₺' + n.toLocaleString('tr-TR');
   }
 
   var MILESTONES = [250000, 500000, 1000000];
@@ -776,7 +805,7 @@
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
@@ -956,12 +985,39 @@
   }
 
   document.getElementById('reset-month-btn').addEventListener('click', function(){
-    if(!confirm('Tüm temsilcilerin satış ve ciro rakamları sıfırlansın mı? (Temsilciler silinmez)')) return;
-    state.agents.forEach(function(a){ a.sales = 0; a.revenue = 0; a.log = []; });
-    state.milestonesHit = [];
-    saveState();
-    renderAdmin();
-    renderBoard();
+    if(state.agents.length === 0){
+      alert('Arşivlenecek bir veri yok, önce temsilci ekleyip satış girmen gerekiyor.');
+      return;
+    }
+    if(!confirm('Bu ayki tüm satış/ciro verileri "Geçmiş Aylar" arşivine kaydedilip, panel yeni aya sıfırlanacak. Devam edilsin mi?')) return;
+
+    var now = new Date();
+    var label = months[now.getMonth()] + ' ' + now.getFullYear();
+    var snapshot = {
+      label: label,
+      ts: Date.now(),
+      agents: state.agents.map(function(a){
+        return { name: a.name, sales: a.sales, revenue: a.revenue, log: a.log || [] };
+      })
+    };
+
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Arşivleniyor...';
+
+    archiveRef.push(snapshot).then(function(){
+      state.agents.forEach(function(a){ a.sales = 0; a.revenue = 0; a.log = []; });
+      state.milestonesHit = [];
+      saveState();
+      renderAdmin();
+      renderBoard();
+      btn.disabled = false;
+      btn.textContent = 'Ayı Kapat & Arşivle';
+    }).catch(function(err){
+      alert('Arşivleme sırasında bir sorun oluştu, sıfırlama iptal edildi: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Ayı Kapat & Arşivle';
+    });
   });
   document.getElementById('clear-all-btn').addEventListener('click', function(){
     if(!confirm('Tüm temsilciler ve veriler kalıcı olarak silinsin mi?')) return;
@@ -971,6 +1027,110 @@
     renderAdmin();
     renderBoard();
   });
+
+  /* ---------------- archive (Geçmiş Aylar) ---------------- */
+  var archiveRef = firebase.database().ref('satis_ligi_archive');
+  var archiveOverlay = document.getElementById('archive-overlay');
+  var archiveList = document.getElementById('archive-list');
+
+  document.getElementById('view-archive-btn').addEventListener('click', openArchive);
+  document.getElementById('archive-close').addEventListener('click', closeArchive);
+  archiveOverlay.addEventListener('click', function(e){ if(e.target === archiveOverlay) closeArchive(); });
+
+  function openArchive(){
+    archiveOverlay.classList.add('open');
+    archiveList.innerHTML = '<div class="history-empty">Yükleniyor...</div>';
+    archiveRef.once('value').then(function(snapshot){
+      var data = snapshot.val() || {};
+      var items = Object.keys(data).map(function(key){
+        var v = data[key];
+        v._key = key;
+        return v;
+      });
+      items.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
+      renderArchiveList(items);
+    }).catch(function(err){
+      archiveList.innerHTML = '<div class="history-empty">Yüklenemedi: '+escapeHtml(err.message)+'</div>';
+    });
+  }
+  function closeArchive(){ archiveOverlay.classList.remove('open'); }
+
+  function renderArchiveList(items){
+    if(!items.length){
+      archiveList.innerHTML = '<div class="history-empty">Henüz arşivlenmiş ay yok. "Ayı Kapat & Arşivle" ile ilk arşivi oluşturabilirsin.</div>';
+      return;
+    }
+    archiveList.innerHTML = '';
+    items.forEach(function(item){
+      var agents = item.agents || [];
+      var totalSales = agents.reduce(function(s,a){ return s + (a.sales||0); }, 0);
+      var totalRevenue = agents.reduce(function(s,a){ return s + (a.revenue||0); }, 0);
+
+      var card = document.createElement('div');
+      card.className = 'archive-card';
+
+      var sortedAgentsForCard = agents.slice().sort(function(a,b){ return (b.revenue||0) - (a.revenue||0); });
+      var detailsHtml = sortedAgentsForCard.map(function(a){
+        return '<div class="archive-row"><span class="a-name">'+escapeHtml(a.name)+'</span>'+
+               '<span class="a-vals">'+(a.sales||0)+' satış · '+formatTL(a.revenue||0)+'</span></div>';
+      }).join('') || '<div class="archive-row"><span class="a-vals">Temsilci kaydı yok</span></div>';
+
+      card.innerHTML =
+        '<div class="archive-card-header">'+
+          '<div>'+
+            '<div class="archive-label">'+escapeHtml(item.label||'İsimsiz Ay')+'</div>'+
+            '<div class="archive-sub">'+agents.length+' temsilci · '+totalSales+' satış · '+formatTL(totalRevenue)+'</div>'+
+          '</div>'+
+          '<div class="archive-actions">'+
+            '<button class="icon-btn" data-act="toggle" title="Detayları göster">▾</button>'+
+            '<button class="icon-btn" data-act="csv" title="CSV olarak indir">⬇</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="archive-details" style="display:none;">'+detailsHtml+'</div>';
+
+      var toggleBtn = card.querySelector('[data-act="toggle"]');
+      var detailsEl = card.querySelector('.archive-details');
+      toggleBtn.addEventListener('click', function(){
+        var isOpen = detailsEl.style.display !== 'none';
+        detailsEl.style.display = isOpen ? 'none' : 'block';
+        toggleBtn.textContent = isOpen ? '▾' : '▴';
+      });
+      card.querySelector('[data-act="csv"]').addEventListener('click', function(){
+        downloadArchiveCSV(item);
+      });
+
+      archiveList.appendChild(card);
+    });
+  }
+
+  function downloadArchiveCSV(item){
+    var agents = (item.agents || []).slice().sort(function(a,b){ return (b.revenue||0) - (a.revenue||0); });
+    var rows = [['Temsilci','Satış Adedi','Ciro (TL)']];
+    agents.forEach(function(a){ rows.push([a.name, a.sales||0, a.revenue||0]); });
+    var totalSales = agents.reduce(function(s,a){ return s + (a.sales||0); }, 0);
+    var totalRevenue = agents.reduce(function(s,a){ return s + (a.revenue||0); }, 0);
+    rows.push(['TOPLAM', totalSales, totalRevenue]);
+
+    var csv = rows.map(function(row){
+      return row.map(function(cell){
+        var s = String(cell);
+        if(s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1){
+          s = '"' + s.replace(/"/g,'""') + '"';
+        }
+        return s;
+      }).join(',');
+    }).join('\n');
+
+    var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'satis-' + String(item.label||'arsiv').replace(/\s+/g,'-') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   /* keyboard shortcut: press "a" to open admin (PIN korumalı), "Escape" to close */
   document.addEventListener('keydown', function(e){
