@@ -577,6 +577,9 @@
     });
   }
 
+  var lastSeenSaleEventId = null;
+  var lastSeenMilestoneEventId = null;
+
   dbRef.on('value', function(snapshot){
     var data = snapshot.val();
     state = data || { agents: [], sortMode: 'sales' };
@@ -585,6 +588,25 @@
     refreshPills();
     if(overlay.classList.contains('open')) renderAdmin();
     if(historyOverlay.classList.contains('open')) renderHistory();
+
+    if(firstLoad){
+      // sayfa ilk açıldığında geçmiş olayları kutlama, sadece işaretle
+      lastSeenSaleEventId = state.lastSaleEvent ? state.lastSaleEvent.id : null;
+      lastSeenMilestoneEventId = state.lastMilestoneEvent ? state.lastMilestoneEvent.id : null;
+    } else {
+      // her bağlı ekranda (TV dahil) aynı anda tetiklenir
+      if(state.lastSaleEvent && state.lastSaleEvent.id !== lastSeenSaleEventId){
+        lastSeenSaleEventId = state.lastSaleEvent.id;
+        celebrate(state.lastSaleEvent.agentName, state.lastSaleEvent.amount);
+      }
+      if(state.lastMilestoneEvent && state.lastMilestoneEvent.id !== lastSeenMilestoneEventId){
+        lastSeenMilestoneEventId = state.lastMilestoneEvent.id;
+        var thresholds = state.lastMilestoneEvent.thresholds || [];
+        thresholds.forEach(function(m, idx){
+          setTimeout(function(){ bigCelebration(m); }, 1100 + idx * 3200);
+        });
+      }
+    }
     firstLoad = false;
   }, function(err){
     console.error('Firebase bağlantı hatası:', err);
@@ -835,12 +857,14 @@
       agent.revenue += amount;
       agent.log.push({ id: uid(), amount: amount, ts: Date.now() });
       var newMilestones = checkMilestones();
+      state.lastSaleEvent = { id: uid(), agentName: agent.name, amount: amount, ts: Date.now() };
+      if(newMilestones.length){
+        state.lastMilestoneEvent = { id: uid(), thresholds: newMilestones, ts: Date.now() };
+      }
       saveState();
       renderBoard(id);
-      celebrate(agent, amount);
-      newMilestones.forEach(function(m, idx){
-        setTimeout(function(){ bigCelebration(m); }, 1100 + idx * 3200);
-      });
+      // Kutlama (GIF/müzik/havai fişek) burada değil, dbRef.on('value', ...) içinde tetikleniyor —
+      // böylece bu satışı giren kişi dahil, bağlı TÜM ekranlarda (TV dahil) aynı anda patlıyor.
     } else if(act === 'minus'){
       if(agent.sales <= 0) return;
       var lastEntry = agent.log.length ? agent.log.pop() : null;
@@ -1373,8 +1397,8 @@
     }, 10000);
   }
 
-  function celebrate(agent, amount){
-    var msg = '🎉 ' + agent.name + ' yeni satış yaptı!';
+  function celebrate(agentName, amount){
+    var msg = '🎉 ' + agentName + ' yeni satış yaptı!';
     if(amount){ msg += ' (' + formatTL(amount) + ')'; }
     showToast(msg);
     playMoneyShow();
