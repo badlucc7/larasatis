@@ -442,7 +442,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">₺0</div>
+      <div class="value" id="stat-revenue">£0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -592,7 +592,7 @@
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '₺' + n.toLocaleString('tr-TR');
+    return '£' + n.toLocaleString('en-GB');
   }
 
   var MILESTONES = [250000, 500000, 1000000];
@@ -823,7 +823,7 @@
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
@@ -1123,7 +1123,7 @@
 
   function downloadArchiveCSV(item){
     var agents = (item.agents || []).slice().sort(function(a,b){ return (b.revenue||0) - (a.revenue||0); });
-    var rows = [['Temsilci','Satış Adedi','Ciro (TL)']];
+    var rows = [['Temsilci','Satış Adedi','Ciro (GBP)']];
     agents.forEach(function(a){ rows.push([a.name, a.sales||0, a.revenue||0]); });
     var totalSales = agents.reduce(function(s,a){ return s + (a.sales||0); }, 0);
     var totalRevenue = agents.reduce(function(s,a){ return s + (a.revenue||0); }, 0);
