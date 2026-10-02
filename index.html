@@ -256,6 +256,19 @@
     100%{ opacity:0; }
   }
 
+  /* ---------- money show (satış GIF + dolar yağmuru) ---------- */
+  #money-show{
+    position:fixed; top:50%; left:50%; z-index:65; pointer-events:none;
+    transform:translate(-50%,-50%) scale(.72); opacity:0;
+    transition:opacity .25s ease, transform .3s cubic-bezier(.2,.8,.2,1);
+  }
+  #money-show.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #money-gif{
+    display:block; width:min(360px,72vw); border-radius:20px;
+    border:4px solid var(--gold);
+    box-shadow:0 24px 80px rgba(0,0,0,.6), 0 0 50px rgba(244,183,64,.55);
+  }
+
   /* ---------- fireworks / confetti canvas ---------- */
   #fx-canvas{ position:fixed; inset:0; pointer-events:none; z-index:50; }
 
@@ -401,6 +414,11 @@
 <div id="milestone-flash"></div>
 <div id="toast-layer"></div>
 
+<div id="money-show">
+  <img id="money-gif" src="vince-mcmahon.gif" alt="">
+</div>
+<audio id="money-audio" src="here-comes-the-money.mp3" preload="auto"></audio>
+
 <div class="stage">
   <header class="top">
     <div class="brand">
@@ -424,7 +442,7 @@
     </div>
     <div class="stat-card accent">
       <div class="label">Bu Ay Toplam Ciro</div>
-      <div class="value" id="stat-revenue">£0</div>
+      <div class="value" id="stat-revenue">₺0</div>
     </div>
     <div class="stat-card gold">
       <div class="label">Lider</div>
@@ -574,7 +592,7 @@
 
   function formatTL(n){
     n = Math.round(n || 0);
-    return '£' + n.toLocaleString('tr-TR');
+    return '₺' + n.toLocaleString('tr-TR');
   }
 
   var MILESTONES = [250000, 500000, 1000000];
@@ -805,7 +823,7 @@
     if(!agent) return;
 
     if(act === 'plus'){
-      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (£):', '');
+      var raw = window.prompt(agent.name + ' — bu satışın ciro tutarını girin (₺):', '');
       if(raw === null) return; // vazgeçildi
       raw = raw.trim().replace(/\./g,'').replace(',', '.');
       var amount = raw === '' ? 0 : parseFloat(raw);
@@ -1252,6 +1270,28 @@
     }
   }
 
+  function spawnMoneyBurst(){
+    var w = canvas.width, h = canvas.height;
+    for(var i=0;i<12;i++){
+      particles.push({
+        type:'dollar',
+        x:-30, y:randRange(h*0.12,h*0.88),
+        vx:randRange(5.5,9.5), vy:randRange(-2.5,2.5),
+        life:0, maxLife:randRange(85,120),
+        rot:randRange(0,Math.PI*2), rotSpeed:randRange(-0.14,0.14),
+        gravity:0.035, size:randRange(26,40)
+      });
+      particles.push({
+        type:'dollar',
+        x:w+30, y:randRange(h*0.12,h*0.88),
+        vx:randRange(-9.5,-5.5), vy:randRange(-2.5,2.5),
+        life:0, maxLife:randRange(85,120),
+        rot:randRange(0,Math.PI*2), rotSpeed:randRange(-0.14,0.14),
+        gravity:0.035, size:randRange(26,40)
+      });
+    }
+  }
+
   function animate(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     particles = particles.filter(function(p){ return p.life < p.maxLife; });
@@ -1269,6 +1309,17 @@
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
         ctx.fill();
+      } else if(p.type === 'dollar'){
+        p.rot += p.rotSpeed;
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.font = p.size + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💵', 0, 0);
+        ctx.restore();
       } else {
         p.rot += p.rotSpeed;
         ctx.globalAlpha = Math.max(0, alpha);
@@ -1293,11 +1344,40 @@
     if(!rafId) rafId = requestAnimationFrame(animate);
   }
 
+  var moneyShowEl = document.getElementById('money-show');
+  var moneyAudio = document.getElementById('money-audio');
+  var moneyBurstTimer = null;
+
+  function playMoneyShow(){
+    moneyShowEl.classList.add('show');
+    try{
+      moneyAudio.currentTime = 0;
+      var p = moneyAudio.play();
+      if(p && p.catch) p.catch(function(){});
+    }catch(e){}
+
+    spawnMoneyBurst();
+    ensureAnimating();
+    var bursts = 0;
+    if(moneyBurstTimer) clearInterval(moneyBurstTimer);
+    moneyBurstTimer = setInterval(function(){
+      spawnMoneyBurst();
+      ensureAnimating();
+      bursts++;
+      if(bursts >= 20){ clearInterval(moneyBurstTimer); moneyBurstTimer = null; }
+    }, 480);
+
+    setTimeout(function(){
+      moneyShowEl.classList.remove('show');
+      try{ moneyAudio.pause(); }catch(e){}
+    }, 10000);
+  }
+
   function celebrate(agent, amount){
     var msg = '🎉 ' + agent.name + ' yeni satış yaptı!';
     if(amount){ msg += ' (' + formatTL(amount) + ')'; }
     showToast(msg);
-    playChime();
+    playMoneyShow();
 
     // multiple firework bursts across the top of the screen
     var w = canvas.width, h = canvas.height;
