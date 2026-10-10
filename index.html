@@ -299,6 +299,28 @@ dialog.sm{width:min(26rem,calc(100vw - 2rem))}
 .cap .cn{color:var(--mu);font-size:1.1rem;font-weight:500}
 .cap .ca{color:#A86F00;font-size:2.4rem;font-weight:700;letter-spacing:-.02em;line-height:1.15}
 
+
+/* ---------- yenileme (Ekim 2026) ---------- */
+.who{flex-direction:row;align-items:center;gap:.75rem}
+.wt{min-width:0;display:flex;flex-direction:column;gap:.1rem}
+.ra{flex:none;width:2.5rem;height:2.5rem;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.9rem;color:#fff;background:var(--rc,var(--ac));box-shadow:0 .2rem .6rem color-mix(in srgb,var(--rc,var(--ac)) 45%,transparent);letter-spacing:.02em}
+.row.sk .ra{background:var(--s2);box-shadow:none}
+.rows .row:nth-child(1){background:linear-gradient(90deg,rgba(242,176,30,.20),rgba(242,176,30,0) 70%)}
+.rows .row:nth-child(2){background:linear-gradient(90deg,rgba(154,169,194,.22),rgba(154,169,194,0) 70%)}
+.rows .row:nth-child(3){background:linear-gradient(90deg,rgba(229,143,94,.20),rgba(229,143,94,0) 70%)}
+.rows.cols2 .row:nth-child(n+4){background:linear-gradient(var(--line),var(--line)) bottom/100% 1px no-repeat}
+.rows .row:nth-child(-n+3){border-radius:var(--r2)}
+.rows .row:nth-child(-n+3) .nm{font-weight:700}
+.psh{display:block;margin-top:.3rem;font-size:.82rem;font-weight:600;color:#8A5A00;white-space:nowrap}
+.ps{display:flex;flex-direction:column;align-items:center}
+.tools{padding:.3rem .4rem .3rem .9rem;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);box-shadow:var(--shadow);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.tools .net{margin-right:.2rem}
+.card{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.hero{background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(246,240,255,.92))}
+.hero .big{background:linear-gradient(100deg,#6C4DFF,#FF5FA2 55%,#FF9F43);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+body.loading .hero .big{-webkit-text-fill-color:transparent}
+.pwrap{padding-bottom:.4rem}
+
 /* ---------- TV / desktop landscape ---------- */
 @media (min-width:900px) and (orientation:landscape){
   html{font-size:max(10px,min(.8333vw,1.4815vh))}
@@ -340,8 +362,10 @@ dialog.sm{width:min(26rem,calc(100vw - 2rem))}
   .rows{flex:1;min-height:0;overflow:auto;scrollbar-width:none;grid-auto-rows:minmax(3.2rem,4.4rem)}
   .rows::-webkit-scrollbar{display:none}
   .rows.cols2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(var(--half,6),minmax(3rem,1fr));grid-auto-rows:auto;grid-auto-flow:column;column-gap:3rem}
-  .row{grid-template-columns:2.6rem minmax(0,11rem) minmax(0,1fr) 7.5rem auto;grid-template-areas:none;column-gap:1rem;row-gap:0;padding:0 .6rem}
-  .rows:not(.cols2) .row{grid-template-columns:3rem 14rem minmax(0,1fr) 9rem auto}
+  .row{grid-template-columns:2.6rem minmax(0,13rem) minmax(0,1fr) 7.5rem auto;grid-template-areas:none;column-gap:1rem;row-gap:0;padding:0 .6rem}
+  .rows:not(.cols2) .row{grid-template-columns:3rem 16rem minmax(0,1fr) 9rem auto}
+  .ra{width:2.9rem;height:2.9rem;font-size:1rem}
+  .psh{font-size:.95rem}
   .rk,.who,.bars,.vw,.acts{grid-area:auto}
   .vs{font-size:.82rem}
   .track2{height:.4rem;margin-top:.32rem}
@@ -360,6 +384,9 @@ dialog.sm{width:min(26rem,calc(100vw - 2rem))}
   .gifbox{width:26rem}
   .cap .cn{font-size:1.4rem}
   .cap .ca{font-size:3.2rem}
+}
+@media (max-width:480px){
+  .psh{font-size:.68rem;white-space:normal;text-align:center;max-width:6.5rem;line-height:1.2}
 }
 @media (max-width:420px){
   #hero3d{height:8rem}
@@ -738,7 +765,7 @@ function makeRow(id){
   li.dataset.id = id;
   li.innerHTML =
     '<span class="rk"></span>'+
-    '<div class="who"><span class="nm"></span><span class="sb"></span></div>'+
+    '<div class="who"><span class="ra"></span><div class="wt"><span class="nm"></span><span class="sb"></span></div></div>'+
     '<div class="bars"><div class="track"><i class="fill"></i></div><div class="track2" hidden><i class="fill2"></i></div></div>'+
     '<div class="vw"><span class="val"></span><span class="vs" hidden></span></div>'+
     '<div class="acts">'+
@@ -756,7 +783,7 @@ function sharedInfo(a){
 }
 function shChip(a){
   var si = sharedInfo(a);
-  return si ? '<em class="sh" title="' + esc(si.partners.join(', ')) + ' ile ortak satış">' + money2(si.amt) + ' ortak satış</em>' : '';
+  return si ? '<span class="psh" title="' + esc(si.partners.join(', ')) + ' ile ortak satış">' + money2(si.amt) + ' ortak satış</span>' : '';
 }
 
 function renderRows(list){
@@ -795,6 +822,7 @@ function renderRows(list){
     li.querySelector('.rk').textContent = i + 1;
     li.style.setProperty('--rc', agentColor(a.id));
     li.querySelector('.nm').textContent = a.name;
+    li.querySelector('.ra').textContent = initials(a.name);
     li.querySelector('.sb').textContent = rev ? (fmtN(a.sales) + ' satış') : money(a.revenue);
     var si = sharedInfo(a), t2 = li.querySelector('.track2'), vs = li.querySelector('.vs');
     t2.hidden = vs.hidden = !si;

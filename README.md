@@ -7,7 +7,7 @@ Eski satış ligi sayfasının yeni tasarımı. Firebase ayarları ve veri yapı
 `badlucc7/larasatis` reposunda şu dosyaları değiştir/yükle:
 
 - `index.html` (eskisinin yerine)
-- `fonts/` ve `vendor/` klasörleri (yeni; vendor 3B animasyon kütüphanesi)
+- `fonts/` ve `vendor/` klasörleri (repoda şu an yok; eksikse site bozuk açılır)
 - `vince-mcmahon.gif` ve `here-comes-the-money.mp3` zaten repoda, aynı kalır
 
 ## Kullanım
