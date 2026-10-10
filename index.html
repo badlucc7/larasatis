@@ -149,9 +149,19 @@ body.unlocked #lockBtn{color:var(--ac);border-color:rgba(108,77,255,.45);backgro
 .who{grid-area:who;min-width:0;display:flex;flex-direction:column;gap:.1rem}
 .nm{font-weight:600;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb{font-size:.85rem;color:var(--mu);white-space:nowrap}
-.track{grid-area:track;height:.7rem;border-radius:999px;background:var(--s2);overflow:hidden}
+.sh{font-style:normal;font-weight:600;font-size:.78rem;color:#7A4B00;background:#FFE9A8;border:1px solid #F2C94C;border-radius:999px;padding:.02rem .5rem;margin-left:.45rem;white-space:nowrap}
+.sh[hidden]{display:none}
+.ps .sh{display:inline-block;margin:.25rem 0 0}
+.bars{grid-area:track;min-width:0}
+.track2{height:.35rem;margin-top:.3rem;border-radius:999px;background:var(--s2);overflow:hidden}
+.track2[hidden]{display:none}
+.fill2{display:block;height:100%;width:0;border-radius:inherit;background:#F2B01E;transition:width .9s var(--ease)}
+.vw{grid-area:val;display:flex;flex-direction:column;align-items:flex-end;gap:.05rem}
+.vs{font-size:.78rem;font-weight:600;color:#8A5A00;white-space:nowrap}
+.vs[hidden]{display:none}
+.track{height:.7rem;border-radius:999px;background:var(--s2);overflow:hidden}
 .fill{display:block;height:100%;width:0;border-radius:inherit;background:var(--rc,var(--ac));transition:width .9s var(--ease)}
-.val{grid-area:val;font-weight:700;font-size:1.3rem;text-align:right;letter-spacing:-.01em;white-space:nowrap}
+.val{font-weight:700;font-size:1.3rem;text-align:right;letter-spacing:-.01em;white-space:nowrap}
 .acts{grid-area:acts;display:none;gap:.5rem}
 body.unlocked .acts{display:flex}
 .rbtn{width:2.75rem;height:2.75rem;border-radius:var(--r1);border:1px solid var(--line2);background:var(--s2);color:var(--tx);display:grid;place-items:center;transition:transform .1s,background .15s}
@@ -195,6 +205,12 @@ body.loading .goal-top,body.loading .gtrack{opacity:.4}
 @keyframes breathe{50%{transform:scale(1.18)}}
 
 /* ---------- dialogs ---------- */
+.chk{display:flex;align-items:center;gap:.7rem;margin:1rem 0 .2rem;font-weight:500;cursor:pointer}
+.chk input{width:1.3rem;height:1.3rem;accent-color:var(--ac);flex:none}
+.chk[hidden]{display:none}
+#partnerBox{margin-top:.8rem}
+#partnerBox[hidden]{display:none}
+select.inp{appearance:auto}
 dialog{
   box-shadow:0 2rem 5rem rgba(40,25,100,.35);border:1px solid var(--line2);border-radius:var(--r2);padding:0;background:var(--s1);color:var(--tx);
   width:min(34rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);
@@ -326,10 +342,13 @@ dialog.sm{width:min(26rem,calc(100vw - 2rem))}
   .rows.cols2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(var(--half,6),minmax(3rem,1fr));grid-auto-rows:auto;grid-auto-flow:column;column-gap:3rem}
   .row{grid-template-columns:2.6rem minmax(0,11rem) minmax(0,1fr) 7.5rem auto;grid-template-areas:none;column-gap:1rem;row-gap:0;padding:0 .6rem}
   .rows:not(.cols2) .row{grid-template-columns:3rem 14rem minmax(0,1fr) 9rem auto}
-  .rk,.who,.track,.val,.acts{grid-area:auto}
+  .rk,.who,.bars,.vw,.acts{grid-area:auto}
+  .vs{font-size:.82rem}
+  .track2{height:.4rem;margin-top:.32rem}
   .rk{font-size:1.4rem}
   .nm{font-size:1.25rem}
   .sb{font-size:.92rem}
+  .sh{font-size:.8rem}
   .track{height:.85rem}
   .val{font-size:1.55rem}
   .rbtn{width:2.6rem;height:2.6rem}
@@ -438,6 +457,8 @@ dialog.sm{width:min(26rem,calc(100vw - 2rem))}
     <div class="dh"><div><h2>Satış ekle</h2><p id="saleWho"></p></div></div>
     <div class="db">
       <label class="fld"><span>Satışın ciro tutarı (£)</span><input class="inp big" id="saleAmt" type="text" inputmode="decimal" placeholder="15000"></label>
+      <label class="chk"><input type="checkbox" id="saleSplit"><span>Ortak satış: iki temsilci arasında eşit bölünsün</span></label>
+      <label class="fld" id="partnerBox" hidden><span>Ortak temsilci</span><select class="inp" id="salePartner"></select></label>
       <p class="prev" id="salePrev"></p>
       <p class="err" id="saleErr" role="alert"></p>
     </div>
@@ -518,6 +539,7 @@ function $(s){ return document.querySelector(s); }
 function ic(n){ return '<svg class="ic" aria-hidden="true"><use href="#i-'+n+'"/></svg>'; }
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function uid(){ return 'a' + Math.random().toString(36).slice(2,9); }
+function fmtN(n){ return String(Math.round((n || 0) * 10) / 10).replace('.', ','); }
 function money(n){ return '£' + Math.round(n || 0).toLocaleString('en-GB'); }
 function money2(n){ n = n || 0; return '£' + (Math.round(n) === n ? n.toLocaleString('en-GB') : n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})); }
 function rand(a,b){ return a + Math.random()*(b-a); }
@@ -555,7 +577,13 @@ function normalize(s){
     if(lg && !Array.isArray(lg)) lg = Object.keys(lg).map(function(k){ return lg[k]; });
     a.log = (lg || []).map(function(e){
       if(typeof e === 'number') return { id: uid(), amount: e, ts: null };
-      if(e && typeof e === 'object') return { id: e.id || uid(), amount: typeof e.amount === 'number' ? e.amount : 0, ts: e.ts || null };
+      if(e && typeof e === 'object'){
+        var o = { id: e.id || uid(), amount: typeof e.amount === 'number' ? e.amount : 0, ts: e.ts || null };
+        if(typeof e.w === 'number') o.w = e.w;
+        if(e.sid) o.sid = String(e.sid);
+        if(e.pn) o.pn = String(e.pn);
+        return o;
+      }
       return { id: uid(), amount: 0, ts: null };
     });
   });
@@ -711,8 +739,8 @@ function makeRow(id){
   li.innerHTML =
     '<span class="rk"></span>'+
     '<div class="who"><span class="nm"></span><span class="sb"></span></div>'+
-    '<div class="track"><i class="fill"></i></div>'+
-    '<span class="val"></span>'+
+    '<div class="bars"><div class="track"><i class="fill"></i></div><div class="track2" hidden><i class="fill2"></i></div></div>'+
+    '<div class="vw"><span class="val"></span><span class="vs" hidden></span></div>'+
     '<div class="acts">'+
       '<button class="rbtn" type="button" data-act="minus">'+ic('minus')+'</button>'+
       '<button class="rbtn pri" type="button" data-act="plus">'+ic('plus')+'</button>'+
@@ -720,10 +748,22 @@ function makeRow(id){
   return li;
 }
 
+/* ortak satış bilgisi: kaç ortak satış, toplam pay, kimlerle */
+function sharedInfo(a){
+  var amt = 0, n = 0, ps = [];
+  (a.log || []).forEach(function(l){ if(l.sid){ n++; amt += l.amount; if(l.pn && ps.indexOf(l.pn) < 0) ps.push(l.pn); } });
+  return n ? { n: n, amt: round2(amt), partners: ps } : null;
+}
+function shChip(a){
+  var si = sharedInfo(a);
+  return si ? '<em class="sh" title="' + esc(si.partners.join(', ')) + ' ile ortak satış">' + money2(si.amt) + ' ortak satış</em>' : '';
+}
+
 function renderRows(list){
   var rev = state.sortMode === 'revenue';
   var top = list.length ? (rev ? list[0].revenue : list[0].sales) : 0;
   var maxV = Math.max(1, top);
+  var maxRev = Math.max(1, list.reduce(function(m, a){ var i = sharedInfo(a); return Math.max(m, i ? i.amt : 0); }, 0));
 
   Array.prototype.forEach.call(rowsEl.querySelectorAll('.sk,.empty'), function(n){ n.remove(); });
 
@@ -755,8 +795,15 @@ function renderRows(list){
     li.querySelector('.rk').textContent = i + 1;
     li.style.setProperty('--rc', agentColor(a.id));
     li.querySelector('.nm').textContent = a.name;
-    li.querySelector('.sb').textContent = rev ? (a.sales + ' satış') : money(a.revenue);
-    li.querySelector('.val').textContent = rev ? money(a.revenue) : String(a.sales);
+    li.querySelector('.sb').textContent = rev ? (fmtN(a.sales) + ' satış') : money(a.revenue);
+    var si = sharedInfo(a), t2 = li.querySelector('.track2'), vs = li.querySelector('.vs');
+    t2.hidden = vs.hidden = !si;
+    if(si){
+      li.querySelector('.fill2').style.width = Math.max(4, Math.round(si.amt / maxRev * 100)) + '%';
+      vs.textContent = money2(si.amt) + ' ortak satış';
+      li.title = si.partners.join(', ') + ' ile ortak satış';
+    } else li.removeAttribute('title');
+    li.querySelector('.val').textContent = rev ? money(a.revenue) : fmtN(a.sales);
     li.querySelector('.fill').style.width = Math.max(val > 0 ? 3 : 0, Math.round(val / maxV * 100)) + '%';
     li.querySelector('[data-act="minus"]').setAttribute('aria-label', a.name + ': son satışı geri al');
     li.querySelector('[data-act="minus"]').title = 'Son satışı geri al';
@@ -786,8 +833,8 @@ function renderPodium(list){
     return '<div class="slot r'+r+'" style="--ag:'+agentColor(a.id)+'">'+
       '<div class="av">'+(r === 1 ? '<svg class="ic crown" aria-hidden="true"><use href="#i-crown-simple"/></svg>' : '')+esc(initials(a.name))+'</div>'+
       '<div class="pn">'+esc(a.name)+'</div>'+
-      '<div class="pv">'+(rev ? money(a.revenue) : a.sales)+'</div>'+
-      '<div class="ps">'+(rev ? a.sales + ' satış' : money(a.revenue))+'</div>'+
+      '<div class="pv">'+(rev ? money(a.revenue) : fmtN(a.sales))+'</div>'+
+      '<div class="ps">'+(rev ? fmtN(a.sales) + ' satış' : money(a.revenue))+shChip(a)+'</div>'+
       '<div class="pb"><i class="mz"></i><i class="st"></i></div></div>';
   }).join('');
   document.dispatchEvent(new Event('liga-podium'));
@@ -797,7 +844,7 @@ function renderStats(list){
   var sales = list.reduce(function(t,a){ return t + a.sales; }, 0);
   var rev = sumRevenue(list);
   tween($('#revenue'), rev, money);
-  tween($('#stSales'), sales, function(v){ return String(Math.round(v)); });
+  tween($('#stSales'), sales, fmtN);
   $('#stAgents').textContent = list.length;
   $('#stLeader').textContent = list.length && (list[0].sales || list[0].revenue) ? list[0].name : '-';
 
@@ -824,7 +871,7 @@ function render(){
 /* skeleton */
 (function(){
   var h = '';
-  for(var i=0;i<8;i++) h += '<li class="row sk"><span class="rk"></span><div class="who"><span class="nm"></span></div><div class="track"></div><span class="val"></span><div class="acts"></div></li>';
+  for(var i=0;i<8;i++) h += '<li class="row sk"><span class="rk"></span><div class="who"><span class="nm"></span></div><div class="bars"></div><div class="vw"></div><div class="acts"></div></li>';
   rowsEl.innerHTML = h;
   podiumEl.innerHTML = [2,1,3].map(function(r){ return '<div class="slot sk r'+r+'"><div class="av"></div><div class="pb"></div></div>'; }).join('');
 })();
@@ -868,6 +915,7 @@ function parseAmount(raw){
 }
 
 var saleDlg = $('#saleDlg'), saleAmt = $('#saleAmt'), saleAgent = null;
+var splitChk = $('#saleSplit'), partnerBox = $('#partnerBox'), partnerSel = $('#salePartner');
 function openSale(id){
   var a = findAgent(state, id);
   if(!a) return;
@@ -875,44 +923,80 @@ function openSale(id){
   $('#saleWho').textContent = a.name;
   saleAmt.value = '';
   $('#saleErr').textContent = '';
+  splitChk.checked = false; partnerBox.hidden = true;
+  partnerSel.innerHTML = sorted().filter(function(x){ return x.id !== id; }).map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>'; }).join('');
+  $('.chk').hidden = !partnerSel.options.length;
   updateSalePrev();
   saleDlg.showModal();
   setTimeout(function(){ saleAmt.focus(); }, 40);
 }
+function splitShares(v){ var h = round2(v / 2); return [h, round2(v - h)]; }
 function updateSalePrev(){
   var v = parseAmount(saleAmt.value);
   var p = $('#salePrev');
-  if(isNaN(v) || v < 0) p.innerHTML = 'Geçerli bir tutar gir (örn. 15000).';
+  if(isNaN(v) || v < 0) { p.innerHTML = 'Geçerli bir tutar gir (örn. 15000).'; return; }
+  if(splitChk.checked && partnerSel.value){
+    var sh = splitShares(v), a = findAgent(state, saleAgent), b = findAgent(state, partnerSel.value);
+    p.innerHTML = '<b>' + esc(a ? a.name : '') + '</b> ' + money2(sh[0]) + ' + <b>' + esc(b ? b.name : '') + '</b> ' + money2(sh[1]) + ' (toplam ' + money2(v) + '). Her biri 0,5 satış sayılır.';
+  }
   else if(saleAmt.value.trim() === '') p.innerHTML = 'Boş bırakırsan tutar <b>£0</b> kaydedilir.';
   else p.innerHTML = 'Kaydedilecek tutar: <b>' + money2(v) + '</b>';
 }
 saleAmt.addEventListener('input', function(){ $('#saleErr').textContent = ''; updateSalePrev(); });
+splitChk.addEventListener('change', function(){ partnerBox.hidden = !splitChk.checked; updateSalePrev(); });
+partnerSel.addEventListener('change', updateSalePrev);
 $('#saleCancel').addEventListener('click', function(){ saleDlg.close(); });
 $('#saleForm').addEventListener('submit', function(e){
   e.preventDefault();
   var v = parseAmount(saleAmt.value);
   if(isNaN(v) || v < 0 || v > 100000000){ $('#saleErr').textContent = 'Geçerli bir tutar gir (örn. 15000).'; return; }
-  var id = saleAgent;
+  var id = saleAgent, partner = splitChk.checked ? partnerSel.value : null;
   saleDlg.close();
-  addSale(id, v);
+  addSale(id, v, partner);
 });
 
-function addSale(agentId, amount){
-  var saleId = uid(), evId = uid(), msId = uid(), ts = Date.now();
+function addSale(agentId, amount, partnerId){
+  var saleId = uid(), saleId2 = uid(), sid = uid(), evId = uid(), msId = uid(), ts = Date.now();
   mutate(function(s){
-    var a = findAgent(s, agentId);
-    if(!a) return false;
-    a.sales += 1;
-    a.revenue = round2(a.revenue + amount);
-    a.log.push({ id: saleId, amount: amount, ts: ts });
+    var a = findAgent(s, agentId), b = partnerId ? findAgent(s, partnerId) : null;
+    if(!a || (partnerId && !b)) return false;
+    var name = a.name;
+    if(b){
+      var sh = splitShares(amount);
+      a.sales += .5; a.revenue = round2(a.revenue + sh[0]);
+      a.log.push({ id: saleId, amount: sh[0], ts: ts, w: .5, sid: sid, pn: b.name });
+      b.sales += .5; b.revenue = round2(b.revenue + sh[1]);
+      b.log.push({ id: saleId2, amount: sh[1], ts: ts, w: .5, sid: sid, pn: a.name });
+      name = a.name + ' & ' + b.name;
+    } else {
+      a.sales += 1;
+      a.revenue = round2(a.revenue + amount);
+      a.log.push({ id: saleId, amount: amount, ts: ts });
+    }
     var total = sumRevenue(s.agents), hit = [];
     MILESTONES.forEach(function(m){
       if(total >= m && s.milestonesHit.indexOf(m) === -1){ s.milestonesHit.push(m); hit.push(m); }
     });
-    s.lastSaleEvent = { id: evId, agentId: a.id, agentName: a.name, amount: amount, ts: ts };
+    s.lastSaleEvent = { id: evId, agentId: a.id, agentIds: b ? [a.id, b.id] : [a.id], agentName: name, amount: amount, ts: ts };
     if(hit.length) s.lastMilestoneEvent = { id: msId, thresholds: hit, ts: ts };
   }).catch(function(){});
   /* Kutlama burada değil, on('value') içinde başlar: bağlı tüm ekranlarda aynı anda patlar. */
+}
+
+/* bir girişi (ortak satışsa eşini de) kaldırır */
+function removeEntry(s, agent, entry){
+  function drop(x, en){
+    x.log = x.log.filter(function(l){ return l.id !== en.id; });
+    x.sales = Math.max(0, round2(x.sales - (typeof en.w === 'number' ? en.w : 1)));
+    x.revenue = Math.max(0, round2(x.revenue - en.amount));
+  }
+  drop(agent, entry);
+  if(entry.sid){
+    s.agents.forEach(function(x){
+      var m = x.log.filter(function(l){ return l.sid === entry.sid; })[0];
+      if(m) drop(x, m);
+    });
+  }
 }
 
 function undoSale(agentId){
@@ -922,9 +1006,9 @@ function undoSale(agentId){
   mutate(function(s){
     var x = findAgent(s, agentId);
     if(!x || x.sales <= 0) return false;
-    var last = x.log.length ? x.log.pop() : null;
-    x.sales = Math.max(0, x.sales - 1);
-    x.revenue = Math.max(0, round2(x.revenue - (last ? last.amount : 0)));
+    var last = x.log.length ? x.log[x.log.length - 1] : null;
+    if(last) removeEntry(s, x, last);
+    else { x.sales = Math.max(0, x.sales - 1); }
   }).then(function(ok){ if(ok) note(name + ': son satış geri alındı.', 'ok'); }).catch(function(){});
 }
 
@@ -1026,7 +1110,7 @@ function renderHistory(){
   $('#histTitle').textContent = a.name + ' · satış geçmişi';
   if(!a.log.length){ histList.innerHTML = '<div class="none">Henüz kayıtlı satış yok.</div>'; return; }
   histList.innerHTML = a.log.slice().reverse().map(function(en){
-    return '<div class="li"><span class="amt">'+money2(en.amount)+'</span><span class="dt">'+fmtDate(en.ts)+'</span>'+
+    return '<div class="li"><span class="amt">'+money2(en.amount)+(en.pn ? ' <small style="font-weight:500;color:var(--mu)">· '+esc(en.pn)+' ile ortak</small>' : '')+'</span><span class="dt">'+fmtDate(en.ts)+'</span>'+
       '<button class="ib bad" type="button" data-entry="'+esc(en.id)+'" aria-label="Bu satışı sil" title="Bu satışı sil">'+ic('trash')+'</button></div>';
   }).join('');
 }
@@ -1036,16 +1120,14 @@ histList.addEventListener('click', function(e){
   var aid = histAgent, eid = b.dataset.entry;
   var a = findAgent(state, aid), en = a && a.log.filter(function(l){ return l.id === eid; })[0];
   if(!en) return;
-  ask({ title: money2(en.amount) + ' tutarındaki satış silinsin mi?', text: 'Satış adedi ve ciro buna göre düşer.', ok: 'Sil', danger: true }).then(function(yes){
+  ask({ title: money2(en.amount) + ' tutarındaki satış silinsin mi?', text: en.sid ? 'Ortak satış: ' + en.pn + ' tarafındaki payı da silinir.' : 'Satış adedi ve ciro buna göre düşer.', ok: 'Sil', danger: true }).then(function(yes){
     if(!yes) return;
     mutate(function(s){
       var x = findAgent(s, aid);
       if(!x) return false;
       var e2 = x.log.filter(function(l){ return l.id === eid; })[0];
       if(!e2) return false;
-      x.log = x.log.filter(function(l){ return l.id !== eid; });
-      x.sales = Math.max(0, x.sales - 1);
-      x.revenue = Math.max(0, round2(x.revenue - e2.amount));
+      removeEntry(s, x, e2);
     }).catch(function(){});
   });
 });
@@ -1298,7 +1380,7 @@ function celebrate(agentId, name, amount){
   document.dispatchEvent(new CustomEvent('liga-celebrate', { detail: 1 }));
   ctoast(ic('trophy') + '<span><b>' + esc(name) + '</b> yeni satış yaptı</span>' + (amount ? '<span class="amt">' + money2(amount) + '</span>' : ''));
   showMoney(name, amount);
-  pulse(agentId);
+  [].concat(agentId).forEach(pulse);
   [[.2,.28],[.5,.18],[.8,.3]].forEach(function(p, i){
     setTimeout(function(){ firework(W * p[0], H * p[1]); go(); }, i * 220);
   });
@@ -1341,7 +1423,7 @@ dbRef.on('value', function(snap){
     /* her bağlı ekranda (TV dahil) aynı anda tetiklenir */
     if(se && se.id !== seenSale){
       seenSale = se.id;
-      celebrate(se.agentId, se.agentName, se.amount);
+      celebrate(se.agentIds || se.agentId, se.agentName, se.amount);
     }
     if(me && me.id !== seenMile){
       seenMile = me.id;
